@@ -1,0 +1,34 @@
+[gd_scene load_steps=3 format=1]
+
+[ext_resource path="res://fonts/roboto_mono_regular.ttf" type="DynamicFontData" id=1]
+
+[sub_resource type="DynamicFont" id=1]
+
+font/size = 20
+font/font = ExtResource( 1 )
+fallback/0 = null
+
+[node name="Test" type="Node"]
+
+[node name="ExampleLabel" type="Label" parent="."]
+
+visibility/visible = false
+anchor/top = 1
+anchor/right = 1
+anchor/bottom = 1
+focus/ignore_mouse = true
+focus/stop_mouse = true
+size_flags/horizontal = 2
+margin/left = 24.0
+margin/top = 88.0
+margin/right = 16.0
+margin/bottom = 20.0
+custom_fonts/font = SubResource( 1 )
+text = "I am an example label! Modify me by typing \"label.set_text <text>\" in the console.\nSet my weight and style using \"label.set_bold 0|1\" and \"label.set_italic 0|1\"."
+align = 1
+valign = 1
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+
