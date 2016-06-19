@@ -19,6 +19,12 @@ static func cmdlist():
 	for command in commands:
 		Console.describe_command(command)
 
+# Lists all available cvars
+static func cvarlist():
+	var cvars = Console.cvars
+	for cvar in cvars:
+		Console.describe_cvar(cvar)
+
 # Prints some help
 static func help():
 	var help_text = """Type [color=#ffff66]cmdlist[/color] to get a list of commands.

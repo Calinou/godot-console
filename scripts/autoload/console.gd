@@ -4,40 +4,106 @@
 extends Panel
 
 onready var console_text = get_node("ConsoleContainer/ConsoleText")
-# This is the script that contains the console commands' code
+# Those are the scripts containing command and cvar code
 var ConsoleCommands = preload("res://scripts/console_commands.gd")
+var ConsoleCvars = preload("res://scripts/console_cvars.gd")
 # All recognized commands
 var commands = {}
 # All recognized cvars
 var cvars = {}
 
 func _ready():
+	# Allow selecting console text
+	console_text.set_selection_enabled(true)
+	# Follow console output (for scrolling)
+	console_text.set_scroll_follow(true)
+
+	set_process_input(true)
+
 	# Register built-in commands
 	register_command("echo", {
 		description = "Prints a string in console",
 		args = "<string>",
 		num_args = 1
 	})
+
 	register_command("cmdlist", {
 		description = "Lists all available commands",
 		args = "",
 		num_args = 0
 	})
+
+	register_command("cvarlist", {
+		description = "Lists all available cvars",
+		args = "",
+		num_args = 0
+	})
+
 	register_command("help", {
 		description = "Outputs usage instructions",
 		args = "",
 		num_args = 0
 	})
+
 	register_command("quit", {
 		description = "Exits the application",
 		args = "",
 		num_args = 0
 	})
 
+	# Register built-in cvars
+	register_cvar("client_max_fps", {
+		description = "The maximal framerate at which the application can run",
+		type = "int",
+		default_value = 61,
+		min_value = 10,
+		max_value = 1000
+	})
+
+	register_cvar("label_text", {
+		description = "The label's text",
+		type = "str",
+		default_value = get_node("/root/Test/ExampleLabel").get_text()
+	})
+
+func _input(event):
+	if event.is_action_pressed("toggle_console"):
+		if is_console_opened():
+			set_console_opened(false)
+		else:
+			set_console_opened(true)
+
 # This function is called from scripts/console_commands.gd to avoid the
 # "Cannot access self without instance." error
 func quit():
 	get_tree().quit()
+
+# This function is called from scripts/console_commands.gd because get_node()
+# can't be used there
+func set_label_text(value):
+	get_node("/root/Test/ExampleLabel").set_text(value)
+
+func set_console_opened(opened):
+	# Close the console
+	if opened == true:
+		get_node("AnimationPlayer").play("fade")
+		# Signal handles the hiding at the end of the animation
+	# Open the console
+	elif opened == false:
+		get_node("AnimationPlayer").play_backwards("fade")
+		show()
+
+# This signal handles the hiding of the console at the end of the fade-out animation
+func _on_AnimationPlayer_finished():
+	if is_console_opened():
+		hide()
+
+# Is the console fully opened?
+func is_console_opened():
+	if get_opacity() == 0:
+		return true
+	else:
+		return false
 
 # Called when the user presses Enter in the console
 func _on_LineEdit_text_entered(text):
@@ -54,13 +120,14 @@ func register_command(name, args):
 	commands[name] = args
 
 # Registers a new cvar (control variable)
-# TODO
-func register_cvar(name, default):
-	pass
+func register_cvar(name, args):
+	cvars[name] = args
+	cvars[name].value = cvars[name].default_value
 
 func append_bbcode(bbcode):
 	console_text.set_bbcode(console_text.get_bbcode() + bbcode)
 
+# Describes a command, user by the "cmdlist" command and when the user enters a command name without any arguments (if it requires at least 1 argument)
 func describe_command(cmd):
 	var command = commands[cmd]
 	var description = command.description
@@ -71,6 +138,19 @@ func describe_command(cmd):
 	else:
 		append_bbcode("[color=#ffff66]" + cmd + ":[/color] " + description + " [color=#88ffff](usage: " + cmd + ")[/color]\n")
 
+# Describes a cvar, used by the "cvarlist" command and when the user enters a cvar name without any arguments
+func describe_cvar(cvar):
+	var cvariable = cvars[cvar]
+	var description = cvariable.description
+	var type = cvariable.type
+	var default_value = cvariable.default_value
+	var value = cvariable.value
+	if type == "str":
+		append_bbcode("[color=#88ff88]" + str(cvar) + ":[/color] [color=#9999ff]\"" + str(value) + "\"[/color]  " + str(description) + " [color=#ff88ff](default: \"" + str(default_value) + "\")[/color]\n")
+	else:
+		var min_value = cvariable.min_value
+		var max_value = cvariable.max_value
+		append_bbcode("[color=#88ff88]" + str(cvar) + ":[/color] [color=#9999ff]" + str(value) + "[/color]  " + str(description) + " [color=#ff88ff](" + str(min_value) + ".." + str(max_value) + ", default: " + str(default_value) + ")[/color]\n")
 
 func handle_command(text):
 	# The current console text, splitted by spaces (for arguments)
@@ -80,7 +160,7 @@ func handle_command(text):
 		var command = commands[cmd[0]]
 		print("] " + text)
 		append_bbcode("[b]] " + text + "[/b]\n")
-		# If no argument is supplied, then show description and usage, but only if command has at least 1 argument required
+		# If no argument is supplied, then show command description and usage, but only if command has at least 1 argument required
 		if cmd.size() == 1 and not command.num_args == 0:
 			describe_command(cmd[0])
 		else:
@@ -89,8 +169,31 @@ func handle_command(text):
 				ConsoleCommands.call(cmd[0])
 			else:
 				ConsoleCommands.call(cmd[0], text)
+	# Check if the first word is a valid cvar
+	elif cvars.has(cmd[0]):
+		var cvar = cvars[cmd[0]]
+		print("] " + text)
+		append_bbcode("[b]] " + text + "[/b]\n")
+		# If no argument is supplied, then show cvar description and usage
+		if cmd.size() == 1:
+			describe_cvar(cmd[0])
+		else:
+			# Let the cvar change values!
+			if cvar.type == "str":
+				for word in range(1, cmd.size()):
+					if word == 1:
+						cvar.value = str(cmd[word])
+					else:
+						cvar.value += str(" " + cmd[word])
+			elif cvar.type == "int":
+				cvar.value = int(cmd[1])
+			elif cvar.type == "float":
+				cvar.value = float(cmd[1])
+
+			# Call setter code
+			ConsoleCvars.call(cmd[0], cvar.value)
 	else:
 		# Treat unknown commands as unknown
 		append_bbcode("[b]] " + text + "[/b]\n")
-		append_bbcode("[i]Unknown command: " + cmd[0] + "[/i]\n")
+		append_bbcode("[i][color=#ff8888]Unknown command or cvar: " + cmd[0] + "[/color][/i]\n")
 	get_node("LineEdit").clear()
