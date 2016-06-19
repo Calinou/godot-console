@@ -3,7 +3,7 @@
 
 extends Panel
 
-onready var console_text = get_node("ConsoleContainer/ConsoleText")
+onready var console_text = get_node("ConsoleText")
 # Those are the scripts containing command and cvar code
 var ConsoleCommands = preload("res://scripts/console_commands.gd")
 var ConsoleCvars = preload("res://scripts/console_cvars.gd")
