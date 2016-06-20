@@ -17,6 +17,8 @@ func _ready():
 	console_text.set_selection_enabled(true)
 	# Follow console output (for scrolling)
 	console_text.set_scroll_follow(true)
+	# Don't allow focusing on the console text itself
+	console_text.set_focus_mode(FOCUS_NONE)
 
 	set_process_input(true)
 
@@ -72,6 +74,24 @@ func _input(event):
 			set_console_opened(false)
 		else:
 			set_console_opened(true)
+	if get_node("LineEdit").get_text() != "" and get_node("LineEdit").has_focus() and Input.is_key_pressed(KEY_TAB):
+		complete()
+
+func complete():
+	var text = get_node("LineEdit").get_text()
+	var matches = 0
+	# If there are no matches found yet, try to complete for a command or cvar
+	if matches == 0:
+		for command in commands:
+			if command.begins_with(text):
+				describe_command(command)
+				get_node("LineEdit").set_text(command)
+				matches += 1
+		for cvar in cvars:
+			if cvar.begins_with(text):
+				describe_cvar(cvar)
+				get_node("LineEdit").set_text(cvar)
+				matches += 1
 
 # This function is called from scripts/console_commands.gd to avoid the
 # "Cannot access self without instance." error
