@@ -7,10 +7,15 @@ onready var console_text = get_node("ConsoleText")
 # Those are the scripts containing command and cvar code
 var ConsoleCommands = preload("res://scripts/console_commands.gd")
 var ConsoleCvars = preload("res://scripts/console_cvars.gd")
+var cmd_history = []
+var cmd_history_count = 0
+var cmd_history_up = 0
 # All recognized commands
 var commands = {}
 # All recognized cvars
 var cvars = {}
+
+var g_player = null
 
 func _ready():
 	# Allow selecting console text
@@ -21,12 +26,25 @@ func _ready():
 	console_text.set_focus_mode(FOCUS_NONE)
 
 	set_process_input(true)
+	
+	# FIXME, if not done break the terminal
+	set_console_opened(false)
+	set_console_opened(true)
+	
+	# By default we show help
+	append_bbcode("Welcome in Godot Engine debug console\nProject: " + Globals.get("application/name") + "\nType [color=yellow]cmdlist[/color] to get a list of all commands avaliables\n[color=green]===[/color]\n")
 
 	# Register built-in commands
 	register_command("echo", {
 		description = "Prints a string in console",
 		args = "<string>",
 		num_args = 1
+	})
+	
+	register_command("history", {
+		description = "Print all previous cmd used during the session",
+		args = "",
+		num_args = 0
 	})
 
 	register_command("cmdlist", {
@@ -53,6 +71,12 @@ func _ready():
 		num_args = 0
 	})
 
+	register_command("clear", {
+		description = "clear the terminal",
+		args = "",
+		num_args = 0
+	})
+
 	# Register built-in cvars
 	register_cvar("client_max_fps", {
 		description = "The maximal framerate at which the application can run",
@@ -62,18 +86,22 @@ func _ready():
 		max_value = 1000
 	})
 
-	register_cvar("label_text", {
-		description = "The label's text",
-		type = "str",
-		default_value = get_node("/root/Test/ExampleLabel").get_text()
-	})
-
 func _input(event):
-	if event.is_action_pressed("toggle_console"):
+	if event.is_action_pressed("console_toggle"):
 		if is_console_opened():
 			set_console_opened(false)
 		else:
 			set_console_opened(true)
+	if event.is_action_pressed("console_up"):
+		if (cmd_history_up > 0 and cmd_history_up <= cmd_history.size()):
+			cmd_history_up-=1
+			get_node("LineEdit").set_text(cmd_history[cmd_history_up])
+			
+	if event.is_action_pressed("console_down"):
+		if (cmd_history_up > -1 and cmd_history_up + 1 < cmd_history.size()):
+			cmd_history_up +=1
+			get_node("LineEdit").set_text(cmd_history[cmd_history_up])
+
 	if get_node("LineEdit").get_text() != "" and get_node("LineEdit").has_focus() and Input.is_key_pressed(KEY_TAB):
 		complete()
 
@@ -85,12 +113,14 @@ func complete():
 		for command in commands:
 			if command.begins_with(text):
 				describe_command(command)
-				get_node("LineEdit").set_text(command)
+				get_node("LineEdit").set_text(command + " ")
+				get_node("LineEdit").set_cursor_pos(100)
 				matches += 1
 		for cvar in cvars:
 			if cvar.begins_with(text):
 				describe_cvar(cvar)
-				get_node("LineEdit").set_text(cvar)
+				get_node("LineEdit").set_text(cvar + " ")
+				get_node("LineEdit").set_cursor_pos(100)
 				matches += 1
 
 # This function is called from scripts/console_commands.gd to avoid the
@@ -112,6 +142,8 @@ func set_console_opened(opened):
 	elif opened == false:
 		get_node("AnimationPlayer").play_backwards("fade")
 		show()
+		get_node("LineEdit").grab_focus()
+		get_node("LineEdit").clear()
 
 # This signal handles the hiding of the console at the end of the fade-out animation
 func _on_AnimationPlayer_finished():
@@ -127,6 +159,15 @@ func is_console_opened():
 
 # Called when the user presses Enter in the console
 func _on_LineEdit_text_entered(text):
+	# used to manage cmd history
+	if cmd_history.size() > 0:
+		if (text != cmd_history[cmd_history_count - 1]):
+			cmd_history.append(text)
+			cmd_history_count+=1
+	else:
+		cmd_history.append(text)
+		cmd_history_count+=1
+	cmd_history_up = cmd_history_count
 	var text_splitted = text.split(" ", true)
 	# Don't do anything if the LineEdit contains only spaces
 	if not text.empty() and text_splitted[0]:
@@ -146,6 +187,18 @@ func register_cvar(name, args):
 
 func append_bbcode(bbcode):
 	console_text.set_bbcode(console_text.get_bbcode() + bbcode)
+
+func get_history_str():
+	var strOut = ""
+	var count = 0
+	for i in cmd_history:
+		strOut += "[color=#ffff66]" + str(count) + ".[/color] " + i + "\n"
+		count+=1
+	
+	return strOut
+
+func clear():
+	console_text.set_bbcode("")
 
 # Describes a command, user by the "cmdlist" command and when the user enters a command name without any arguments (if it requires at least 1 argument)
 func describe_command(cmd):
@@ -178,22 +231,22 @@ func handle_command(text):
 	# Check if the first word is a valid command
 	if commands.has(cmd[0]):
 		var command = commands[cmd[0]]
-		print("] " + text)
-		append_bbcode("[b]] " + text + "[/b]\n")
+		print("> " + text)
+		append_bbcode("[b]> " + text + "[/b]\n")
 		# If no argument is supplied, then show command description and usage, but only if command has at least 1 argument required
 		if cmd.size() == 1 and not command.num_args == 0:
 			describe_command(cmd[0])
 		else:
 			# Run the command! If there are no arguments, don't pass any to the other script.
 			if command.num_args == 0:
-				ConsoleCommands.call(cmd[0])
+				ConsoleCommands.call(cmd[0].replace(".",""))
 			else:
-				ConsoleCommands.call(cmd[0], text)
+				ConsoleCommands.call(cmd[0].replace(".",""), text)
 	# Check if the first word is a valid cvar
 	elif cvars.has(cmd[0]):
 		var cvar = cvars[cmd[0]]
-		print("] " + text)
-		append_bbcode("[b]] " + text + "[/b]\n")
+		print("> " + text)
+		append_bbcode("[b]> " + text + "[/b]\n")
 		# If no argument is supplied, then show cvar description and usage
 		if cmd.size() == 1:
 			describe_cvar(cmd[0])
@@ -214,6 +267,6 @@ func handle_command(text):
 			ConsoleCvars.call(cmd[0], cvar.value)
 	else:
 		# Treat unknown commands as unknown
-		append_bbcode("[b]] " + text + "[/b]\n")
+		append_bbcode("[b]> " + text + "[/b]\n")
 		append_bbcode("[i][color=#ff8888]Unknown command or cvar: " + cmd[0] + "[/color][/i]\n")
 	get_node("LineEdit").clear()
