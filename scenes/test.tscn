@@ -5,8 +5,9 @@
 [sub_resource type="DynamicFont" id=1]
 
 font/size = 20
+font/use_mipmaps = false
+font/use_filter = false
 font/font = ExtResource( 1 )
-fallback/0 = null
 
 [node name="Test" type="Node"]
 
@@ -18,10 +19,11 @@ anchor/bottom = 1
 focus/ignore_mouse = true
 focus/stop_mouse = true
 size_flags/horizontal = 2
-margin/left = 24.0
-margin/top = 88.0
-margin/right = 16.0
-margin/bottom = 20.0
+size_flags/vertical = 0
+margin/left = 10.0
+margin/top = 566.0
+margin/right = 14.0
+margin/bottom = 498.0
 custom_fonts/font = SubResource( 1 )
 text = "I am an example label! Modify me by typing \"label_text <text>\" in the console."
 align = 1
