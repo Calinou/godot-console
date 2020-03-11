@@ -1,5 +1,13 @@
 # Godot Console
 
+___
+
+**This repository is no longer maintained. Please see
+[QuentinCaffeino/godot-console](https://github.com/QuentinCaffeino/godot-console)
+for a console add-on that works with Godot 3.x.**
+
+___
+
 A **work-in-progress** Quake-style console for Godot. Requires a recent Godot 2.1-series build.
 
 ![Preview](https://lut.im/z7lquRdc5n/IRrUJuiJdUUuWfuO.png)
